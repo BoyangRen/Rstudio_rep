@@ -5,7 +5,7 @@
 ##1) Required libraries###############
 required.packages=c("ggplot2","dplyr","hrbrthemes","viridis","EnvStats","reshape2",
                     "ggforce","ComplexUpset","ggsignif","gridExtra","ggpubr","rstatix",
-                    "pROC","flexmix","tidyr","tune","mgcv")
+                    "pROC","flexmix","tidyr","tune","mgcv","boot")
 
 #Don't know if needed:"ggsignif"
 for (package in required.packages){
@@ -172,11 +172,11 @@ fn_plot_Biomarker_ROC1<- function(PREDICTOR_COL,RESPONSE_COL,SAMPLE_RANGE,SEN,SP
   print (paste("Boolean responder:",colnames(data)[RESPONSE_COL]))
   print (paste("Sample size:",length(SAMPLE_RANGE)))
   
-  ##a) Continuous x data (biomarker)#######
+  ##a) Continuous x data (biomarker)
   Biomarker_exp <- data[,PREDICTOR_COL][SAMPLE_RANGE] 
   Biomarker_exp
   
-  ##b) Known classification data(0 and 1). discrete.##########
+  ##b) Known classification data(0 and 1). discrete.
   Responder<-data[,RESPONSE_COL][SAMPLE_RANGE]
   
   Responder[Responder==RES_GR1] <-1
@@ -187,7 +187,7 @@ fn_plot_Biomarker_ROC1<- function(PREDICTOR_COL,RESPONSE_COL,SAMPLE_RANGE,SEN,SP
   #plot(x=Biomarker_exp,y=Responder)
   
   
-  ##c) logistic regression to get the probability of y in each x position.##########
+  ##c) logistic regression to get the probability of y in each x position.
   #use glm to fit a logistic regression curve to the data
   glm.fit=glm(Responder ~ Biomarker_exp, family=RESP)
   #binomial, gaussian and poisson (count data) for the family choice of the responder.
@@ -203,7 +203,7 @@ fn_plot_Biomarker_ROC1<- function(PREDICTOR_COL,RESPONSE_COL,SAMPLE_RANGE,SEN,SP
   #glm.fit$fitted.values contains estimated probabilities that each sample is obese.
   
   
-  ##d) plot ROC curve######
+  ##d) plot ROC curve
   ##==>ROC is about discrete outcome vs probability of it.
   
   ROC.data.ori<-roc(Responder ~ Biomarker_exp,quiet=T)
@@ -690,9 +690,9 @@ fn_plot_corr_preditedVSactual<-function(reg_model,predictor_range,responser,mode
   
   summary(reg_model)
   best_fit_predictors<-colnames(training_set)[predictor_range]
- 
-      #Previous deprecated codes for making prediction 
-      if(T){if(model_type=="glm"){
+  
+  #Previous deprecated codes for making prediction 
+  if(T){if(model_type=="glm"){
     best_fit_predictors.df<<-data.frame(ID=c("-",predictor_range),
                                         Predictor=c("Intercept",best_fit_predictors),
                                         Estimated_coefficient=coef(reg_model),
@@ -707,20 +707,20 @@ fn_plot_corr_preditedVSactual<-function(reg_model,predictor_range,responser,mode
       predicted_value[[i]]<-fn_predicted_response_glm(validation_set[i,best_fit_predictors])
     }
   }
-  if(model_type=="micmen"){
-    best_fit_predictors.df<<-data.frame(ID=c(predictor_range,"-","-"),
-                                        Predictor=c(best_fit_predictors,"Vm","k"),
-                                        Estimated_coefficient=c("-",coef(reg_model)),
-                                        Pvalue=c("-",coef(summary(reg_model))[,4]),
-                                        row.names = NULL)
-    #predicted values for nlm
-    for (i in 1:nrow(validation_set)){
-      #for debug
-      #i=1
-      if (i==1){predicted_value<-list()}
-      predicted_value[[i]]<-fn_predicted_response_nlm(validation_set[i,best_fit_predictors])
-    }
-  }}
+    if(model_type=="micmen"){
+      best_fit_predictors.df<<-data.frame(ID=c(predictor_range,"-","-"),
+                                          Predictor=c(best_fit_predictors,"Vm","k"),
+                                          Estimated_coefficient=c("-",coef(reg_model)),
+                                          Pvalue=c("-",coef(summary(reg_model))[,4]),
+                                          row.names = NULL)
+      #predicted values for nlm
+      for (i in 1:nrow(validation_set)){
+        #for debug
+        #i=1
+        if (i==1){predicted_value<-list()}
+        predicted_value[[i]]<-fn_predicted_response_nlm(validation_set[i,best_fit_predictors])
+      }
+    }}
   
   
   #####b) Prediction in the validation test=============

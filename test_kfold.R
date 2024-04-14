@@ -27,7 +27,7 @@ library(boot)
 ##1)Full set glm model. FULL SET! NOT TRAINING SET#####
   model1_glm_full<-glm(mpg~weight+horsepower+acceleration,
                       data=Auto)
-##2)cross validation
+##2)cross validation!
   cv.err=cv.glm(data=Auto,model1_glm_full)
   #folds, default is sample size
   cv.err$K
