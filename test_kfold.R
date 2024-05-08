@@ -41,6 +41,7 @@ cv.err.10=cv.glm(data=Auto, model1_glm_full,K=10)
 cv.err.10
 cv.err.10$delta
 
+pred.cv<-predict(cv.err.10,testing)
 
 
 

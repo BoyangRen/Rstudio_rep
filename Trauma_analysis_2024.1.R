@@ -41,8 +41,20 @@ data<-data[,-1]
 ##Important ICU stay time processing==============
 # round up to integer days! i.e. 1.3 days-->2days
 
-ICU_integer<-data.frame(ICU_days=ceiling(data[,55]))
-data[,116]<-ICU_integer
+
+data[c(1:48),116]=sapply(data[c(1:48),55],function(x){
+  if(x<=median(data[c(1:48),55])){"short_stay"}else{"long_stay"}
+})
+data[c(1:48),117]=sapply(data[c(1:48),55],function(x){
+  if(x<=median(data[c(1:48),55])){0}else{1}
+})
+data[,117]<-as.numeric(data[,117])
+colnames(data)[c(116)]<-"hospital.stay.length"
+colnames(data)[c(117)]<-"hospital.stay.length_binary"
+
+
+
+
 #called ICU_days
 
 meta.CI.file<-"raw_data/Metadata_Tauma_Clinical_2024.csv"
@@ -541,9 +553,9 @@ fn_fit_split<-function(training_size,sample_range,responser,permutation){
   }
   
   
-  Samples_all_split.df<-tibble(Training_set=training.list,Validation_set=validation.list,Score=score.list)
+  Samples_all_split.df<-tibble(Training_set=training.list,testing_set=validation.list,Score=score.list)
   
-  Samples_best_split.df<<-tibble(Training_set=training.best.list,Validation_set=validation.best.list,Score=score.best.list)
+  Samples_best_split.df<<-tibble(Training_set=training.best.list,testing_set=validation.best.list,Score=score.best.list)
   
   write.csv(data.frame(lapply(Samples_all_split.df, as.character), stringsAsFactors=FALSE),"Subgrouping_metrics_all_permutations.csv")
   write.csv(data.frame(lapply(Samples_best_split.df, as.character), stringsAsFactors=FALSE),"Subgrouping_metrics_best_fit.csv")
@@ -700,11 +712,11 @@ fn_plot_corr_preditedVSactual<-function(reg_model,predictor_range,responser,mode
                                         row.names = NULL)
     
     #predicted values
-    for (i in 1:nrow(validation_set)){
+    for (i in 1:nrow(testing_set)){
       #for debug
       #i=1
       if (i==1){predicted_value<-list()}
-      predicted_value[[i]]<-fn_predicted_response_glm(validation_set[i,best_fit_predictors])
+      predicted_value[[i]]<-fn_predicted_response_glm(testing_set[i,best_fit_predictors])
     }
   }
     if(model_type=="micmen"){
@@ -714,18 +726,18 @@ fn_plot_corr_preditedVSactual<-function(reg_model,predictor_range,responser,mode
                                           Pvalue=c("-",coef(summary(reg_model))[,4]),
                                           row.names = NULL)
       #predicted values for nlm
-      for (i in 1:nrow(validation_set)){
+      for (i in 1:nrow(testing_set)){
         #for debug
         #i=1
         if (i==1){predicted_value<-list()}
-        predicted_value[[i]]<-fn_predicted_response_nlm(validation_set[i,best_fit_predictors])
+        predicted_value[[i]]<-fn_predicted_response_nlm(testing_set[i,best_fit_predictors])
       }
     }}
   
   
   #####b) Prediction in the validation test=============
-  Validation_df<<-data.frame(ID=validation_set$SAMPLE_ID,
-                             Actual=validation_set[,responser],
+  Validation_df<<-data.frame(ID=testing_set$SAMPLE_ID,
+                             Actual=testing_set[,responser],
                              Predicted=unlist(predicted_value))
   
   Responser<-colnames(data)[responser]
@@ -755,7 +767,7 @@ fn_plot_corr_preditedVSactual<-function(reg_model,predictor_range,responser,mode
 }
 fn_predicted_response_glm<-function(predictor_value){
   ##debug
-  #Predictor_data<-validation_set[1, best_fit_predictors_ID]
+  #Predictor_data<-testing_set[1, best_fit_predictors_ID]
   ##
   Predicted<-best_fit_predictors.df$Estimated_coefficient[1]+
     sum(predictor_value* best_fit_predictors.df$Estimated_coefficient[-1])
@@ -805,7 +817,7 @@ fn_fit_nls<-function(predictor_range,responser,Vm,k,rlim,flim){
 } 
 fn_predicted_response_nlm<-function(predictor_value){
   ##debug
-  #Predictor_data<-validation_set[1, best_fit_predictors_ID]
+  #Predictor_data<-testing_set[1, best_fit_predictors_ID]
   ##
   Vm<<-as.numeric(best_fit_predictors.df[2,3])
   k<<-as.numeric(best_fit_predictors.df[3,3])
@@ -815,7 +827,7 @@ fn_predicted_response_nlm<-function(predictor_value){
 fn_plot_validation_predVSactual<-function(model,val_set){
   ##debug use only
   model=multi.fit_glm_4predictorsto55
-  val_set=validation_set
+  val_set=testing_set
   ##
   responser=model$formula[[2]]
   predicted<-predict(model,newdata=val_set)
@@ -1796,7 +1808,7 @@ model_list.df<-tibble(
   if(T){fn_fit_split(training_size = 38,
                      sample_range = c(1:48)[!is.na(data[,55])],
                      responser = 55,
-                     permutation = 50000)}
+                     permutation = 40000)}
   
   #If some data are to be excluded, add [!(c(1:48) %in% c(EXCLUDED_RANGE))]
   
@@ -1815,36 +1827,40 @@ if(T){samples_best_split.df_0321<-Samples_best_split.df}
 ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ##
 #select the splitted sets
 data.frame(samples_best_split.df_0321)
-selected=16
+selected=20
 
 training_set_ID<-unlist(samples_best_split.df_0321[selected,1])
-validation_set_ID<-unlist(samples_best_split.df_0321[selected,2])
+testing_set_ID<-unlist(samples_best_split.df_0321[selected,2])
 score_0321<-unlist(samples_best_split.df_0321[selected,3])
 
 
 training_set_ID
-validation_set_ID
+testing_set_ID
 score_0321
 
 #######!! !! !! Export and Import of training and validation sets#################
 #These are complete and splitted training set and validation set.
 training_set<-cbind(data[training_set_ID,],purpose="Training",SAMPLE_ID=training_set_ID)
-validation_set<-cbind(data[validation_set_ID,],purpose="Validation",SAMPLE_ID=validation_set_ID)
-subset_melted<-rbind(training_set,validation_set)
-if(F){write.csv(subset_melted,"Importable_training_validation_sets.csv")}
+testing_set<-cbind(data[testing_set_ID,],purpose="Testing",SAMPLE_ID=testing_set_ID)
+subset_melted<-rbind(training_set,testing_set)
+if(T){write.csv(subset_melted,"Importable_training_testing_sets.csv")}
 ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## ## 
 #Import previous training and validation sets..
-if(T){subset_melted<-read.table("Importable_training_validation_sets.csv",header = T,row.names =1,sep = ",")
+if(F){subset_melted<-read.table("Importable_training_testing_sets.csv",header = T,row.names =1,sep = ",")
 training_set<-subset_melted[subset_melted$purpose=="Training",]
-validation_set<-subset_melted[subset_melted$purpose=="Validation",]
+testing_set<-subset_melted[subset_melted$purpose=="Testing",]
 }
+
+subset_melted$purpose <- factor(subset_melted$purpose, 
+                                levels=c("Training","Testing"))
 
 ##1)Describption of training set and validation set####################
 ###a) Age between two sets#############################################
 pdf ("Age_distribution_trainingVSvalidation.pdf",width = 2,height = 4)
 
-fill.No=117
-x.No=117
+
+fill.No=118
+x.No=118
 y.No=1
 
 ggplot(subset_melted,aes_string(x=colnames(subset_melted)[x.No], 
@@ -1886,7 +1902,7 @@ dev.off()
   
   pdf ("Sex_distribution_trainingVSvalidation.pdf",width = 2.5,height = 3)
   
-  fill.No=117
+  fill.No=118
   x.No=2
   y.No=2
   
@@ -1914,8 +1930,8 @@ dev.off()
   ###c) Responser distribution between two sets===================
   pdf (paste(colnames(training_set)[responser],"_distribution_trainingVSvalidation.pdf",sep=""),width = 2,height = 4)
   
-  fill.No=117
-  x.No=117
+  fill.No=118
+  x.No=118
   y.No=responser
   ggplot(subset_melted,aes_string(x=colnames(subset_melted)[x.No], 
                                   y=colnames(subset_melted)[y.No]))+ 
@@ -2176,7 +2192,7 @@ dev.off()
   fn_plot_corr_preditedVSactual(reg_model=multi.fit_glm_7predictorsto55,predictor_range=best_fit_predictors_ID,responser=55,model_type="glm",if_export=F)
   
   
-  fn_plot_validation_predVSactual(model=multi.fit_glm_4predictorsto55,val_set = validation_set)
+  fn_plot_validation_predVSactual(model=multi.fit_glm_4predictorsto55,val_set = testing_set)
   
  
   
@@ -2249,21 +2265,37 @@ summary(gam.fit.m_BP1)
 fn_plot_Residual(gam.fit.m_BP1,pval = F)
 fn_plot_Residual(gam.fit.m_BP2_IM5,pval = F)
 
-predicted<-predict(gam.fit.m_BP2_IM5,newdata=validation_set)
+predicted<-predict(gam.fit.m_BP2_IM5,newdata=testing_set)
 predicted  
 
-fn_plot_validation_predVSactual(model=gam.fit.m_BP1,val_set = validation_set)
+fn_plot_validation_predVSactual(model=gam.fit.m_BP1,val_set = testing_set)
   
   
+
+#########################
+library(caret)
+folds=createF
+
+
+data[c(1:48),118]=sapply(data[c(1:48),55],function(x){
+  if(x<=median(data[c(1:48),55])){"0"}else{"1"}
+})
+colnames(data)[118]<-"hospital.stay.length"
+data[118]
+#logistic regression#################
+ggplot(training_set,aes_string(x=colnames(training_set)[56],y=colnames(training_set)[117]))+
+  geom_jitter(height=0.05,alpha=0.2)+
+  geom_smooth(method="glm",method.args=list(family="binomial"))
+  theme_minimal()
+  
+plot(data[c(1:48),c(4:15)])
   
   
+Formula1=as.formula(paste(colnames(training_set)[117],"~",
+                          colnames(training_set[6]),sep = ""))
+lr.fit <- glm(formula=Formula1,
+              data=training_set,
+              family="binomial")
   
-  
-  
-  
-  
-  
-  
-  
-  
-  
+summary(lr.fit)
+
