@@ -40,7 +40,7 @@ data<-data[,-1]
 
 ##Important ICU stay time processing==============
 # round up to integer days! i.e. 1.3 days-->2days
-
+colnames(data)
 
 data[c(1:48),116]=sapply(data[c(1:48),55],function(x){
   if(x<=median(data[c(1:48),55])){"short_stay"}else{"long_stay"}
@@ -49,10 +49,10 @@ data[c(1:48),117]=sapply(data[c(1:48),55],function(x){
   if(x<=median(data[c(1:48),55])){0}else{1}
 })
 data[,117]<-as.numeric(data[,117])
-colnames(data)[c(116)]<-"hospital.stay.length"
-colnames(data)[c(117)]<-"hospital.stay.length_binary"
+colnames(data)[c(116)]<-"class.hospital.stay.length"
+colnames(data)[c(117)]<-"binary.hospital.stay.length_binary"
 
-
+data[,115]<-factor(data[,115],levels=c("Yes",""))
 
 
 #called ICU_days
@@ -75,10 +75,10 @@ meta.CI<-read.table(meta.CI.file,header = T,sep = ",")
   color.panel1<-c("#e0ecf4","#A0CBE8","#b34d4d")
   #Less severe vs major
   color.panel2<-c("#A0CBE8","#b34d4d")
-#Other fixed palettes:
-color.panel3<-c("#b34d4d","#5695A0","#E59DAA","#697983","#9E6B72")
-color.panel4<-c("#E69F00","#56B4E9","#009E73","#D55E00","#697983")
-color.panel5<-c("#49525E")
+  #Other fixed palettes:
+  color.panel3<-c("#b34d4d","#5695A0","#E59DAA","#697983","#9E6B72")
+  color.panel4<-c("#E69F00","#56B4E9","#009E73","#D55E00","#697983")
+  color.panel5<-c("#49525E")
 #color.panel5<-c("#c1272d","#0000a7","#eecc16","#008176","#b3b3b3")
 #Reference color palette(not in use)
 #cbbPalette <- c("#000000", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
@@ -308,7 +308,7 @@ fn_plot_Biomarker_ROC2<- function(PREDICTOR_COL,RESPONSE_COL,SAMPLE_RANGE,SEN,SP
   #==>The probability will be stored in the fitted.value.
   #pass weight and the fitted.values stored in glm.fit into the lines() function
   #Add connected line segments to a plot
-  #so that it draw a curve that tells us the predicted **probability** that an individual is obeses or not obese.
+  #so that it draw a curve that tells us the predicted **probability** .
   #lines(Biomarker_exp, glm.fit$fitted.values)
   #lines(Biomarker_exp, rf.fit$votes[,1])
   
@@ -856,6 +856,50 @@ fn_plot_validation_predVSactual<-function(model,val_set){
 
 
 #plot for demographics 1
+##0) hospital stay statistics=============
+pdf ("Hospital_stay_traumaVSctrl_test.pdf",width = 2,height = 3)
+
+colnames(data)[115]
+colnames(data)[54]
+colnames(data)[57]
+fill.No=57
+x.No=57
+y.No=54
+ggplot(data[c(1:48),],aes_string(x=colnames(data)[x.No], 
+                       y=colnames(data)[y.No]))+ 
+  #geom_violin(aes_string(fill=colnames(data)[fill.No]),
+              #color="grey",size=0.05)+
+  geom_dotplot(
+    aes_string(fill=colnames(data)[115]),
+    binaxis = "y",
+    stackdir="center",
+    dotsize = 1,position = position_dodge(0.05))+
+ 
+  scale_y_continuous(expand = expansion(mult = c(0.1, 0.15)))+
+  #coord_cartesian(ylim = c(15,55))+
+  #scale_fill_brewer(palette="BuPu")
+  scale_fill_manual(values = c("#b34d4d","#e0ecf4"))+
+  theme_classic()+
+  theme(legend.position = "top",
+        axis.text=element_text(size=12),
+        axis.title=element_text(size=12),
+  )+
+  xlab ("")+
+  
+  stat_n_text(aes_string(x=colnames(data)[x.No], 
+                         y=colnames(data)[y.No]))
+dev.off()
+
+color.panel<-c("#e0ecf4","#b34d4d")
+#Control, less_severe,major
+color.panel1<-c("#e0ecf4","#A0CBE8","#b34d4d")
+#Less severe vs major
+color.panel2<-c("#A0CBE8","#b34d4d")
+#Other fixed palettes:
+color.panel3<-c("#b34d4d","#5695A0","#E59DAA","#697983","#9E6B72")
+color.panel4<-c("#E69F00","#56B4E9","#009E73","#D55E00","#697983")
+color.panel5<-c("#49525E")
+
 ##1) Age between trauma and control######################
 pdf ("Age_distribution_traumaVSctrl_test.pdf",width = 2,height = 3)
 
@@ -1088,20 +1132,24 @@ dev.off()
 ##reshape the dataframe for biomarker columns##############
 data.melt.biomarker<-melt(data,
                 measure.vars = colnames(data)[c(4:15)])
-colnames(data.melt.biomarker)[c(44,45,105,106)]=c("severity","group","biomarker","expression")
+colnames(data.melt.biomarker)[c(106,107)]=c("biomarker","expression")
 #convert the group (character) to factor type.
-data.melt.biomarker$group<-as.factor(data.melt.biomarker$group)
+data.melt.biomarker$Group<-as.factor(data.melt.biomarker$Group)
+
+data.melt.biomarker$expression
+data.melt.biomarker$expression==0
 
 
-
+summary(data.melt.biomarker$Group)
 
 ##1) Trauma vs Control, vertical#############################
 #(by flipping horizontal with coord_flip()
 #grouped by the factorized variable: biomarkers (melted) and then compare the levels of the value(expression), between ~Group:
+#package dependency: rstatix
 stat.test1 <- data.melt.biomarker %>%
   group_by(biomarker) %>%
-  t_test(expression ~ group) %>%
-  adjust_pvalue(method = "none") %>%
+  t_test(expression ~ Group) %>%
+  adjust_pvalue(method = "fdr") %>%
   add_significance("p.adj")
 #FDR=0.05, FDR`=FDR/n, p<FDR, adjusted: padjust<FDR, which equal: np < FDR. Here, the adjust p = np.
 stat.test1 <- stat.test1 %>%
@@ -1109,10 +1157,14 @@ stat.test1 <- stat.test1 %>%
 
 
 fill.No=45
-x.No=105
-y.No=106
+#45:Group
+y.No=107
+#107: expression
+x.No=106
+#106:biomarker names
 
 
+colnames(data.melt.biomarker)[106]
 
 pdf ("biomarker_panel_controlvstrauma_test.pdf",
      width = 5,height = 6)
@@ -1121,38 +1173,38 @@ pdf ("biomarker_panel_controlvstrauma_test.pdf",
 
 #pos<-position_dodge(0.6)
 ggplot(data.melt.biomarker,
-       aes_string(
-                  x=colnames(data.melt.biomarker)[x.No], 
-                  y=colnames(data.melt.biomarker)[y.No]
+       aes_string(y=colnames(data.melt.biomarker)[y.No],
+                  x=colnames(data.melt.biomarker)[x.No] 
+                  
                   )
        )+
   geom_violin(aes_string(fill=colnames(data.melt.biomarker)[fill.No]),
                          color="grey",size=0.05)+
   geom_sina(aes_string(fill=colnames(data.melt.biomarker)[fill.No]),
             alpha=0.3,size=0.4)+
-  
-  scale_y_log10()+
-  xlab("biomarkers")+ylab("copies/mL")+
-  scale_fill_manual(values = color.panel)+
-  theme_classic()+
-  theme(legend.position = "top",
-        legend.direction = "vertical",
-        axis.text=element_text(size=12),
-        axis.title=element_text(size=12),
-        legend.text=element_text(size=12))+
-  labs(fill="")+
-  #Add statistics to the plot
-  #Add statistics computed by rstatix, t-test with multi-comparison adjust (bonferroni method)
+   scale_y_log10()+
+    xlab("biomarkers")+ylab("copies/mL")+
+    scale_fill_manual(values = color.panel)+
+    theme_classic()+
+    theme(legend.position = "top",
+          legend.direction = "vertical",
+          axis.text=element_text(size=12),
+          axis.title=element_text(size=12),
+          legend.text=element_text(size=12))+
+    labs(fill="")+
+  # #Add statistics to the plot
+  # #Add statistics computed by rstatix, t-test with multi-comparison adjust (bonferroni method)
   stat_pvalue_manual(stat.test1,
-                     label = "p.adj.signif", 
+                     label = "p.adj.signif",
                      angle = 90,
                      hjust = 1, vjust = 1.5,
                      tip.length = 0,
-                     #y.position = 0, 
+                     #y.position = 0,
                      step.increase = 0,
                      remove.bracket = T,
-                     size=4,
+                     size=4
                      
+
   )+
   #flip x and y
   #scale_x_discrete(limits=rev)+
@@ -1164,27 +1216,30 @@ dev.off()
 ##2) Major and less severe_vertical#################################
 #Grouped by severity
 
-stat.test2 <- data.melt.biomarker[data.melt.biomarker$group %in% c("Trauma"),] %>%
+stat.test2 <- data.melt.biomarker[data.melt.biomarker$Group %in% c("Trauma","Control"),] %>%
   group_by(biomarker) %>%
-  t_test(expression ~ severity) %>%
-  adjust_pvalue(method = "none") %>%
+  t_test(expression ~ Severity) %>%
+  adjust_pvalue(method = "fdr") %>%
   add_significance("p.adj")
 #FDR=0.05, FDR`=FDR/n, p<FDR, adjusted: padjust<FDR, which equal: np < FDR. Here, the adjust p = np.
 stat.test2 <- stat.test2 %>%
   add_xy_position(x = "biomarker")
 
 fill.No=44
-x.No=105
-y.No=106
+#45:Severity
+y.No=107
+#107: expression
+x.No=106
+#106:biomarker names
 
 
 
-pdf ("biomarker_panel_severity_vertical_test.pdf",
-     width = 5,height = 6)
+pdf ("biomarker_panel_severity_vertical_without sig.pdf",
+     width = 5,height = 8)
 
 
 #pos<-position_dodge(0.6)
-ggplot(data.melt.biomarker[data.melt.biomarker$group %in% c("Trauma"),],
+ggplot(data.melt.biomarker[data.melt.biomarker$Group %in% c("Trauma","Control"),],
        aes_string(
          x=colnames(data.melt.biomarker)[x.No], 
          y=colnames(data.melt.biomarker)[y.No]
@@ -1196,7 +1251,7 @@ ggplot(data.melt.biomarker[data.melt.biomarker$group %in% c("Trauma"),],
             alpha=0.3,size=0.4)+
   
   xlab("biomarkers")+ylab("copies/mL")+
-  scale_fill_manual(values = color.panel2)+
+  scale_fill_manual(values = color.panel1)+
   theme_classic()+
   theme(legend.position = "top",
         legend.direction = "vertical",
@@ -1205,25 +1260,25 @@ ggplot(data.melt.biomarker[data.melt.biomarker$group %in% c("Trauma"),],
         legend.text=element_text(size=12))+
   labs(fill="")+
   scale_y_log10()+
-  coord_flip()+
+  coord_flip()
   #Add statistics to the plot
   #Add statistics computed by rstatix, t-test with multi-comparison adjust (bonferroni method)
-  stat_pvalue_manual(stat.test2,
-                     label = "p.adj.signif", 
-                     angle = 90,
-                     hjust = 1.2, vjust = 1.5,
-                     #y.position = 2, 
-                     #step.increase = 0,
-                     remove.bracket = T,
-                     size=4,
-                     hide.ns=T
-                     
-                     
-  )+
-  
+  # stat_pvalue_manual(stat.test2,
+  #                    label = "p.adj.signif",
+  #                    angle = 90,
+  #                    hjust = 0.5, vjust = 1.5,
+  #                    #y.position = 2,
+  #                    #step.increase = 0,
+  #                    remove.bracket = T,
+  #                    size=4,
+  #                    hide.ns=T,
+  #                    bracket.nudge.y=0,
+  #                    coord.flip=T
+  # )
+
   #flip x and y
   #scale_x_discrete(limits=rev)+
-  coord_flip()
+  
 
 dev.off()
 
@@ -1285,7 +1340,7 @@ dev.off()
 #4. Logistic regression (binomial linear regression) to associate the outcome of biomarker expression ############
 
 
-##1) Trauma/Control prediction by biomarkers############
+##1) Trauma/Control identified by biomarkers############
 
 
 #Biomarker_ROC(PREDICTOR_COL=4,RESPONSE_COL=57,SAMPLE_RANGE=c(1:72),SEN=80,SPEC=80,RESP_TYPE = 1)
@@ -1319,7 +1374,7 @@ rangelist
 write.csv(as.data.frame(rangelist) ,"Range of predictor_forTraumaVSControl.csv",row.names = F)
 
 
-##2) Major/Less_Severe trauma prediction by biomarkers##############
+##2) Major/Less_Severe trauma identified by biomarkers##############
 
 
 pdf ("Prediction_BiomarkerToSeverity_excludeInRNA-seq.pdf",width = 8,height = 6)
@@ -1388,6 +1443,8 @@ dev.off()
   
 
 ##3) Multivariate correlation of severity with several biomarkers########
+ #Ref: https://www.youtube.com/watch?v=qcvAqAH60Yw&ab_channel=StatQuestwithJoshStarmer
+  
 SAMPLE_RANGE=c(1:48)[!(data[c(1:48),115] %in% "Yes")]
 RES_GR1="Major"
 RES_GR2="Less_Severe"
@@ -1395,15 +1452,57 @@ Responder<-data[SAMPLE_RANGE,56]
 Responder[Responder==RES_GR1] <-1
 Responder[Responder==RES_GR2] <-0
 Responder <- sapply(Responder, as.numeric)
-
+rm(multi.fit)
+# multi.fit<-glm(Responder ~ ., family="binomial",
+#                data=data[SAMPLE_RANGE,c(4:15)])
+#best fit with 0,1 distinguish (exclude 6, 15)
 multi.fit<-glm(Responder ~ ., family="binomial",
-               data=data[SAMPLE_RANGE,c(4:15)])
+               data=data[SAMPLE_RANGE,c(4,5,7,8,9,10,11,12,13,14)])
+multi.fit<-glm(Responder ~ ., family="binomial",
+               data=data[SAMPLE_RANGE,c(6,10)])
+multi.fit$fitted.values
+plot(x=multi.fit$fitted.values,y=Responder)
+lines(multi.fit$fitted.values,Responder)
+
+
+###########
+
+
+write.csv(cbind(Responder,data[SAMPLE_RANGE,c(4:15)]),"roc_data_test")
+
+
+
+data.test<-read.csv("roc_data_test.csv")
+roc.list<-roc(Responder ~ A+B+C+D+E+F+G+H+I+J+K+L,data=data.test)
+ci.list <- lapply(roc.list, ci.se, specificities = seq(0, 1, l = 25))
+
+dat.ci.list <- lapply(ci.list, function(ciobj) 
+  data.frame(x = as.numeric(rownames(ciobj)),
+             lower = ciobj[, 1],
+             upper = ciobj[, 3]))
+
+p <- ggroc(roc.list) + theme_minimal() + geom_abline(slope=1, intercept = 1, linetype = "dashed", alpha=0.7, color = "grey") + coord_equal()
+for(i in 1:3) {
+  p <- p + geom_ribbon(
+    data = dat.ci.list[[i]],
+    aes(x = x, ymin = lower, ymax = upper),
+    fill = i + 1,
+    alpha = 0.2,
+    inherit.aes = F) 
+} 
+p
+
 
 pdf ("Multi12_predict_roc_Severity.pdf",width = 4,height = 4)
 par(pty="square")
 ROC.combined<-roc(Responder ~ multi.fit$fitted.values,plot=T,legacy.axes=T, percent=F, 
     xlab="False Positive ",ylab="True Positive ",
-    col=color.panel3[1],lwd=2,quiet=T)
+    col=color.panel3[1],lwd=2,quiet=T,ci=TRUE)
+class(ROC.combined$ci)
+ROC.combined$ci[3]
+
+
+
 text(x=0.25,y=0.10,label=paste("AUC=",sprintf("%.2f", round(ROC.combined$auc,2))))
 text(x=0.25,y=0.20,label=paste("P = 0.005"))
 title("Biomarker panels (12) -> Severity",cex.main= 1.3,line = 3)
@@ -1421,7 +1520,7 @@ ROC.meta.multi<-data.frame(sensitivity=ROC.combined$sensitivities*100,
 write.csv(ROC.meta.multi,"Multi12_predict_roc_Severity_metadata.csv")
 summary(multi.fit)
 
-##4) Multivariate correlation (selected from ISS regression with biomarkers) of severity with several biomarkers########
+##4) Multivariate correlation [WRONG] (selected from ISS regression with biomarkers) of severity with several biomarkers########
 SAMPLE_RANGE=c(1:48)
 RES_GR1="Major"
 RES_GR2="Less_Severe"
