@@ -23,7 +23,7 @@ for (package in required.packages){
   print(paste('Loaded:', package))
 }
 
-##2) data import############
+##2) Data import############
 
 #wd<-getwd()
 wd<-"C:/Users/renbo/OneDrive/Desktop/Manuscript writing/Data analysis/R"
@@ -38,36 +38,29 @@ data<-read.table(data.file,header = T,sep = ",")
 row.names(data) = data[,1]
 data<-data[,-1]
 
-##Important ICU stay time processing==============
-# round up to integer days! i.e. 1.3 days-->2days
-write.csv(colnames(data),"colnames_0509.csv")
-colnames(data)
+##3) Order and Stratify==============
+
+data[,115]<-factor(data[,115],levels=c("Yes",""))
 
 
 data[c(1:48),128]=sapply(data[c(1:48),55],function(x){
   if(x<=median(data[c(1:48),55])){"short_stay"}else{"long_stay"}
 })
-data[c(1:48),129]=sapply(data[c(1:48),55],function(x){
-  if(x<=median(data[c(1:48),55])){0}else{1}
-})
-data[,129]<-as.numeric(data[,129])
-colnames(data)[c(128)]<-"class.hospital.stay.length"
-colnames(data)[c(129)]<-"binary.hospital.stay.length_binary"
+data[,128]<-factor(data[,128],levels=c("short_stay","long_stay"))
+colnames(data)[128]<-"Hospital.stay"
 
-data[,115]<-factor(data[,115],levels=c("Yes",""))
-
-
-#called ICU_days
+#data[,129]<-as.numeric(data[,129])
 
 meta.CI.file<-"raw_data/Metadata_Tauma_Clinical_2024.csv"
 meta.CI.file
 meta.CI<-read.table(meta.CI.file,header = T,sep = ",")
 
 
-#data.meta<-read.table(f.meta,header = F,sep = ",")
+#write out colnames
+write.csv(colnames(data),"colnames_0509.csv")
+colnames(data)
 
-
-##3) color palettes################
+##3) Color palettes################
 ##https://r-charts.com/color-palettes/
 
 
@@ -85,7 +78,7 @@ meta.CI<-read.table(meta.CI.file,header = T,sep = ",")
 #Reference color palette(not in use)
 #cbbPalette <- c("#000000", "#E69F00", "#56B4E9", "#009E73", "#F0E442", "#0072B2", "#D55E00", "#CC79A7")
 
-##4) functions
+##4) functions##################
 fn_plot_mediator_indiviual <- function(mediator){
   fill.No=56
   x.No=56
@@ -264,7 +257,7 @@ fn_plot_Biomarker_ROC1<- function(PREDICTOR_COL,RESPONSE_COL,SAMPLE_RANGE,SEN,SP
   
 }
 fn_plot_Biomarker_ROC2<- function(PREDICTOR_COL,RESPONSE_COL,SAMPLE_RANGE,SEN,SPEC,RESP_TYPE){
-  
+  data=clean.data
   ##For debug use
   #SEN=70
   #SPEC=80
@@ -281,11 +274,11 @@ fn_plot_Biomarker_ROC2<- function(PREDICTOR_COL,RESPONSE_COL,SAMPLE_RANGE,SEN,SP
   print (paste("Boolean responder:",colnames(data)[RESPONSE_COL]))
   print (paste("Sample size:",length(SAMPLE_RANGE)))
   
-  ###a) Continuous x data (biomarker)#######
+  ###f-a) Continuous x data (biomarker)#######
   Biomarker_exp <- data[,PREDICTOR_COL][SAMPLE_RANGE] 
   Biomarker_exp
   
-  ###b) Known classification data(0 and 1). discrete.##########
+  ###f-b) Known classification data(0 and 1). discrete.##########
   Responder<-data[,RESPONSE_COL][SAMPLE_RANGE]
   
   Responder[Responder==RES_GR1] <-1
@@ -296,7 +289,7 @@ fn_plot_Biomarker_ROC2<- function(PREDICTOR_COL,RESPONSE_COL,SAMPLE_RANGE,SEN,SP
   #plot(x=Biomarker_exp,y=Responder)
   
   
-  ###c) logistic regression to get the probability of y in each x position.##########
+  ###f-c) logistic regression to get the probability of y in each x position.##########
   #use glm to fit a logistic regression curve to the data
   glm.fit=glm(Responder ~ Biomarker_exp, family=RESP)
   #regression.summary<-list()
@@ -317,7 +310,7 @@ fn_plot_Biomarker_ROC2<- function(PREDICTOR_COL,RESPONSE_COL,SAMPLE_RANGE,SEN,SP
   #glm.fit$fitted.values contains estimated probabilities that each sample is obese.
   
   
-  ###d) plot ROC curve######
+  ###f-d) plot ROC curve######
   ##==>ROC is about discrete outcome vs probability of it.
   
   ROC.data.ori<-roc(Responder ~ Biomarker_exp,quiet=T)
@@ -737,7 +730,7 @@ fn_plot_corr_preditedVSactual<-function(reg_model,predictor_range,responser,mode
     }}
   
   
-  #####b) Prediction in the validation test=============
+  #####f-b) Prediction in the validation test=============
   Validation_df<<-data.frame(ID=testing_set$SAMPLE_ID,
                              Actual=testing_set[,responser],
                              Predicted=unlist(predicted_value))
@@ -746,7 +739,7 @@ fn_plot_corr_preditedVSactual<-function(reg_model,predictor_range,responser,mode
   Predictor<-colnames(data)[predictor_range]
   R_sqr<-summary(lm(Validation_df$Actual~Validation_df$Predicted))$adj.r.squared
   
-  #####c) Correlation_validation_actualVSpredicted#################
+  #####f-c) Correlation_validation_actualVSpredicted#################
   p_cor<<-ggplot(Validation_df,aes(x=Predicted,y=Actual))+
     geom_point()+
     geom_smooth(method='lm',color=color.panel3[1])+
@@ -852,13 +845,24 @@ fn_plot_validation_predVSactual<-function(model,val_set){
   print(p_cor)
   
 }
-#
+
+#Data cleaning##############
+clean.data<-data
+CI_threshold=0.5
+#biomarker range: c(4:15)
+col.x=c(4:15)
+#corresponding 95% CI
+CI.x=col.x+112
+
+clean.data[,col.x][data[,CI.x]>CI_threshold | data[,CI.x]=="-"]=NA
+
+
 
 #1. Demographics####################
 
 
 #plot for demographics 1
-##0) hospital stay statistics=============
+##0) Hospital stay statistics=============
 pdf ("Hospital_stay_traumaVSctrl_test.pdf",width = 2,height = 3)
 
 colnames(data)[115]
@@ -999,7 +1003,7 @@ dev.off()
 
 
 #plot for demographics 4
-##4) ICU time  between major and less severe trauma#################
+##4) Hospital time  between major and less severe trauma#################
 
 pdf ("ICU_majorVSless_severe_test.pdf",width = 2,height = 3.8)
 
@@ -1348,6 +1352,7 @@ dev.off()
 
 
 
+
 #4. Logistic regression (binomial linear regression) to associate the outcome of biomarker expression ############
 
 
@@ -1388,7 +1393,7 @@ write.csv(as.data.frame(rangelist) ,"Range of predictor_forTraumaVSControl.csv",
 ##2) Major/Less_Severe trauma identified by biomarkers##############
 
 
-pdf ("Prediction_BiomarkerToSeverity_excludeInRNA-seq.pdf",width = 8,height = 6)
+pdf ("Prediction_BiomarkerToSeverity_excludeInRNA-seq_clean.pdf",width = 8,height = 6)
 par(pty="square")
 ##
 layout<-layout(rbind(c(1:4),c(5:8),c(9:12)))
@@ -1400,12 +1405,15 @@ Range_of_predictors=c(4:15)
 rangelist = list()
 regression.summary = list()
 rangelist = vector("list", length = length(Range_of_predictors))
+
 for (i in Range_of_predictors)
 { 
-  fn_plot_Biomarker_ROC2(PREDICTOR_COL = i,56,SAMPLE_RANGE = c(1:48)[!(data[c(1:48),115] %in% "Yes")],SEN=70,SPEC=70,RESP_TYPE=1)
+  fn_plot_Biomarker_ROC2(PREDICTOR_COL = i,56,SAMPLE_RANGE = c(1:48)[!(clean.data[c(1:48),115] %in% "Yes")],SEN=70,SPEC=70,RESP_TYPE=1)
 }
 par(pty="maximum")
 dev.off()
+
+
 
 #Arrange the rangelist
 rangelist<-t(as.data.frame(rangelist) )
@@ -1437,7 +1445,7 @@ dev.off()
   pdf ("PlasmaRNA_Prediction of trauma or severity_compare.pdf",width = 6,height = 4)
   par(pty="square")
   
-  fn_plot_Biomarker_ROC2(PREDICTOR_COL=69,RESPONSE_COL=56,SAMPLE_RANGE=c(1:48),SEN=70,SPEC=70,RESP_TYPE = 1)
+  fn_plot_Biomarker_ROC2(PREDICTOR_COL=69,RESPONSE_COL=54,SAMPLE_RANGE=c(1:48),SEN=70,SPEC=70,RESP_TYPE = 1)
   
   par(pty="maximum")
   dev.off()
@@ -1452,7 +1460,149 @@ dev.off()
   #output the results                  
   write.csv(as.data.frame(rangelist) ,"Range of PlasmaRNAConcentration_forSeverity.csv",row.names = F)
   
-
+##Overlay several ROCs on the same curve############
+  data[,15]
+  
+  
+  
+  
+  ##For debug use
+  colnames(data)[69]
+  PREDICTOR_COL=c(4:15,69)
+  RESPONSE_COL=56
+  RES_GR1="Major"
+  RES_GR2="Less_Severe"
+  RESP=c("binomial","gaussian","poisson")[1]
+  SAMPLE_RANGE=c(1:48)
+  
+  print (paste("Predictor:",colnames(data)[PREDICTOR_COL],"Boolean responder:"))
+  print (paste("Boolean responder:",colnames(data)[RESPONSE_COL]))
+  print (paste("Sample size:",length(SAMPLE_RANGE)))
+  
+  ###f-a) Continuous x data (biomarker)#######
+  Biomarker_exp <- data[SAMPLE_RANGE,PREDICTOR_COL]
+  Biomarker_exp
+  
+  ###f-b) Known classification data(0 and 1). discrete.##########
+  Responder<-data[,RESPONSE_COL][SAMPLE_RANGE]
+  
+  Responder[Responder==RES_GR1] <-1
+  Responder[Responder==RES_GR2] <-0
+  Responder <- sapply(Responder, as.numeric)
+  
+  
+  
+  
+  #95% CI
+  ci.list <- lapply(roc.list, ci.se, specificities = seq(0, 1, l = 25))
+  
+  dat.ci.list <- lapply(ci.list, function(ciobj) 
+    data.frame(x = as.numeric(rownames(ciobj)),
+               lower = ciobj[, 1],
+               upper = ciobj[, 3]))
+  
+  p <- ggroc(roc.list,size=0.7) + theme_minimal() + geom_abline(slope=1, intercept = 1, linetype = "dashed", alpha=0.7, color = "grey") + coord_equal()
+  for(i in 1:3) {
+    p <- p + geom_ribbon(
+      data = dat.ci.list[[i]],
+      aes(x = x, ymin = lower, ymax = upper),
+      fill = i + 1,
+      alpha = 0.2,
+      inherit.aes = F) 
+  } 
+  p
+  
+  
+  
+  
+  
+  for (i in c(1:13)){
+  ROC<-roc(Responder ~ Biomarker_exp[,i],quiet=T,na.rm=T)
+  assign(paste("ROC",".",i,sep = ""), ROC)
+  }
+  
+  
+  colnames(Biomarker_exp)[13]
+  plot(ROC.1, col = 1, lty = 1, main = "ROC")
+  plot(ROC.3, col = 2, lty = 1, add = TRUE)
+  plot(ROC.4, col = 3, lty = 1, add = TRUE)
+  plot(ROC.5, col = 4, lty = 1, add = TRUE)
+  plot(ROC.6, col = 5, lty = 1, add = TRUE)
+  plot(ROC.7, col = 6, lty = 1, add = TRUE)
+  plot(ROC.8, col = 7, lty = 1, add = TRUE)
+  plot(ROC.13, col = 8, lty = 2, add = TRUE)
+  
+  
+  plot(ROC.3, col = 1, lty = 1, main = "ROC")
+  plot(ROC.7, col = 2, lty = 1, add = TRUE)
+  plot(ROC.13, col = 3, lty = 2, add = TRUE)
+  
+  
+  dev.off()
+  
+  
+  #Pass known classifications for eachTotal.P.df#Pass known classifications for each sample, and the probability that each sample is group 1 or 2
+  
+  #Formatted version
+  par(pty="square")
+  roc(Responder ~ Biomarker_exp,plot=T,legacy.axes=T, percent=F, 
+      xlab="False Positive ",ylab="True Positive ",
+      col=color.panel3[1],lwd=2,quiet=T)
+  text(x=0.25,y=0.10,label=paste("AUC=",round(ROC.data.ori$auc,2)))
+  title(paste(colnames(data)[PREDICTOR_COL]),cex.main= 1.3,line = 3)
+  
+  par(pty="maximum")
+  
+  
+  
+  
+  
+  ###To get the range of threshold that achieves a specific range of sen/spec. 
+  ###in a specific part of the plot (i.e. specific range of sensitivity and specificity)
+  #in ROC.data
+  
+  ROC.meta.ori<-data.frame(sensitivity=ROC.data.ori$sensitivities*100,
+                           specificity=ROC.data.ori$specificities*100,
+                           tpp=ROC.data.ori$sensitivities*100,
+                           fpp=(1-ROC.data.ori$specificities)*100,
+                           thresholds=ROC.data.ori$thresholds
+  )
+  
+  write.csv(ROC.meta.ori,file = paste(colnames(data)[PREDICTOR_COL],"&",colnames(data)[RESPONSE_COL],".csv"))
+  
+  
+  
+  Threshold<-ROC.meta.ori[ROC.meta.ori$tpp>TPP & ROC.meta.ori$fpp<FPP,]
+  Threshold_range<-range(Threshold$thresholds)
+  
+  #Adding the range of predictor to a list.
+  ##use <<- to make it updated outside the function.
+  rangelist[[(PREDICTOR_COL-Range_of_predictors[1]+1)]][1] <<- colnames(data)[PREDICTOR_COL]
+  rangelist[[(PREDICTOR_COL-Range_of_predictors[1]+1)]][2] <<- Threshold_range[1]
+  rangelist[[(PREDICTOR_COL-Range_of_predictors[1]+1)]][3] <<- Threshold_range[2]
+  #rangelist[1]
+  print(paste("Expression range of biomarkers with sensitivity of",SEN,"% and specificity of",SPEC,"% to predict the outcome is:",Threshold_range[1],"to",Threshold_range[2]),sep="")
+  print("")
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+ 
+  
+  
+  
+  
+  
 ##3) Multivariate correlation of severity with several biomarkers########
  #Ref: https://www.youtube.com/watch?v=qcvAqAH60Yw&ab_channel=StatQuestwithJoshStarmer
   
@@ -1482,9 +1632,31 @@ lines(multi.fit$fitted.values,Responder)
 write.csv(cbind(Responder,data[SAMPLE_RANGE,c(4:15)]),"roc_data_test")
 
 
+##ROC with confidence interval!!!!!! #################
+colnames(data)[56]
+PREDICTOR_COL=c(4:15,69)
+RESPONSE_COL=56
+RES_GR1="Major"
+RES_GR2="Less_Severe"
+RESP=c("binomial","gaussian","poisson")[1]
+SAMPLE_RANGE=c(1:48)
+Responder<-data[,RESPONSE_COL][SAMPLE_RANGE]
 
-data.test<-read.csv("roc_data_test.csv")
-roc.list<-roc(Responder ~ A+B+C+D+E+F+G+H+I+J+K+L,data=data.test)
+Responder[Responder==RES_GR1] <-1
+Responder[Responder==RES_GR2] <-0
+Responder <- sapply(Responder, as.numeric)
+
+
+colnames(data)[RESPONSE_COL]
+
+  
+  
+data.roc<-data[c(1:48),c(6,7,16,39,56)]
+
+
+roc.list<-roc(Severity ~ .,data=data.roc)
+
+#95% CI
 ci.list <- lapply(roc.list, ci.se, specificities = seq(0, 1, l = 25))
 
 dat.ci.list <- lapply(ci.list, function(ciobj) 
@@ -1492,7 +1664,7 @@ dat.ci.list <- lapply(ci.list, function(ciobj)
              lower = ciobj[, 1],
              upper = ciobj[, 3]))
 
-p <- ggroc(roc.list) + theme_minimal() + geom_abline(slope=1, intercept = 1, linetype = "dashed", alpha=0.7, color = "grey") + coord_equal()
+p <- ggroc(roc.list,size=0.7) + theme_minimal() + geom_abline(slope=1, intercept = 1, linetype = "dashed", alpha=0.7, color = "grey") + coord_equal()
 for(i in 1:3) {
   p <- p + geom_ribbon(
     data = dat.ci.list[[i]],
@@ -1611,7 +1783,7 @@ figure<-ggarrange(
 
 
 figure
-}
+
 
 ##1)Each individual linear model================================
 ###a) Define plot ranges==========
